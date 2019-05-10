@@ -7,6 +7,6 @@ set -e
     "lego" \
     "alpine:latest" \
     "lego" \
-    "git@github.com:go-acme/lego" \
+    "https://github.com/go-acme/lego.git" \
     ">=1.0.0 <2.0.0 || >2.0.0" \
     "true"

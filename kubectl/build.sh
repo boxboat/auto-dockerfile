@@ -7,6 +7,6 @@ set -e
     "kubectl" \
     "alpine:latest" \
     "kubectl" \
-    "git@github.com:kubernetes/kubernetes" \
+    "https://github.com/kubernetes/kubernetes.git" \
     ">=1.8.0" \
     "true"

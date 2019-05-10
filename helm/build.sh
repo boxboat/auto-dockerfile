@@ -7,6 +7,6 @@ set -e
     "helm" \
     "alpine:latest" \
     "helm" \
-    "git@github.com:helm/helm" \
+    "https://github.com/helm/helm.git" \
     ">=2.8.0" \
     "true"

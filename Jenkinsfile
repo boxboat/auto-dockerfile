@@ -6,28 +6,31 @@ properties([
 throttle(['docker']) {
   node(label: 'docker') {
     stage('Initialize') {
+        checkout scm
         sh '''
           ./cicd/build-pre.sh
         '''
     }
     stage ('Build') {
-      parallel (
-        "helm": {
-          sh '''
-            ./helm/build.sh
-          '''
-        },
-        "kubectl": {
-          sh '''
-            ./kubectl/build.sh
-          '''
-        },
-        "lego": {
-          sh '''
-            ./lego/build.sh
-          '''
-        },
-      )
+      docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+        parallel (
+          "helm": {
+            sh '''
+              ./helm/build.sh
+            '''
+          },
+          "kubectl": {
+            sh '''
+              ./kubectl/build.sh
+            '''
+          },
+          "lego": {
+            sh '''
+              ./lego/build.sh
+            '''
+          },
+        )
+      }
     }
   }
 }
