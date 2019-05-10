@@ -1,5 +1,7 @@
 ARG REPO_DIGEST
 FROM ${REPO_DIGEST}
+ARG CHECKSUM
+RUN echo "${CHECKSUM}" > /root/.checksum
 
 RUN apk add --no-cache \
 		curl \
@@ -13,6 +15,3 @@ RUN curl -SsL "https://storage.googleapis.com/kubernetes-helm/helm-v${VERSION}-l
 WORKDIR /home/alpine
 USER alpine:alpine
 ENTRYPOINT [ "/usr/local/bin/helm" ]
-
-ARG CHECKSUM
-RUN echo "${CHECKSUM}" > .checksum

@@ -1,5 +1,7 @@
 ARG REPO_DIGEST
 FROM ${REPO_DIGEST}
+ARG CHECKSUM
+RUN echo "${CHECKSUM}" > /root/.checksum
 
 RUN apk add --no-cache \
 		curl \
@@ -14,6 +16,3 @@ RUN curl -SsL "https://github.com/go-acme/lego/releases/download/v${VERSION}/leg
 WORKDIR /home/alpine
 USER alpine:alpine
 ENTRYPOINT [ "/usr/local/bin/lego" ]
-
-ARG CHECKSUM
-RUN echo "${CHECKSUM}" > .checksum

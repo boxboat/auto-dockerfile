@@ -8,46 +8,70 @@ semver_range="$5"
 tag_latest="$6"
 
 cd $(dirname $0)
+checksum_dockerfile_path=$(pwd)/checksum
 set -e
 cd ../
 cd $image_dir
 
-export REPO_DIGEST=$(docker inspect --format='{{index .Id}}' $base_image)
+# needed for `docker manifest` commands
+export DOCKER_CLI_EXPERIMENTAL="enabled"
 
+# base image should be pulled in `cicd/build-pre.sh`
+# get the repo digest of the base image
+export REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$base_image")
+# compute checksum of Dockerfile
+export CHECKSUM=$(envsubst '${REPO_DIGEST}' < Dockerfile \
+        | sha256sum \
+        | cut -d' ' -f1)
+
+# build a checksum image and push
+docker build \
+    --build-arg "CHECKSUM=${CHECKSUM}" \
+    --build-arg "REPO_DIGEST=${REPO_DIGEST}" \
+    -t "boxboat/$image_name:checksum" \
+    "$checksum_dockerfile_path"
+docker push "boxboat/$image_name:checksum"
+checksum_manifest=$(docker manifest inspect "boxboat/$image_name:checksum")
+checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
+checksum_length=$(echo "$checksum_layers" | wc -l)
+
+# list remote git versions
 versions=$(git ls-remote --tags "$git_remote" \
     | sed -r -n 's|.*refs/tags/v?(.*)$|\1|p' \
     | xargs docker run --rm semver -r "$semver_range")
 
+# iterate through each version and build
 echo "---------------------------------------"
 echo "Building boxboat/$image_name versions:"
 echo "$versions"
-
 IFS=$'\n'
 for version in $versions; do
-    export VERSION="$version"
-    export CHECKSUM=$(envsubst '${DIGEST} ${VERSION}' < Dockerfile \
-        | sha256sum \
-        | cut -d' ' -f1)
+
     echo "---------------------------------------"
     echo "boxboat/$image_name:$version - starting"
     echo "---------------------------------------"
+
+    # check for remote manifest
     build="false"
-    if ! docker pull "boxboat/$image_name:$version"; then
+    set +e
+    manifest=$(docker manifest inspect "boxboat/$image_name:$version")
+    rc=$?
+    set -e
+
+    if [ $rc -ne 0 ]; then
+        # no remote manifest; build
         build="true"
         echo "---------------------------------------"
         echo " boxboat/$image_name:$version - does not exist; building"
         echo "---------------------------------------"
     else
-        image_checksum=$(docker run \
-            --rm \
-            --entrypoint sh \
-            "boxboat/$image_name:$version" \
-            -c 'if [ -f .checksum ]; then cat .checksum; fi')
-        if [ "$image_checksum" != "$CHECKSUM" ]; then
+        # check that remote manifest layers match checksum layers
+        manifest_checksum_layers=$(echo "$manifest" | jq -r '.layers[].digest' | head -n "$checksum_length")
+        if [ "$manifest_checksum_layers" != "$checksum_layers" ]; then
+            echo "---------------------------------------"
+            echo " boxboat/$image_name:$version - does not exist; building"
+            echo "---------------------------------------"
             build="true"
-            echo "---------------------------------------"
-            echo "boxboat/$image_name:$version - out of date; building"
-            echo "---------------------------------------"
         fi
     fi
     
@@ -55,7 +79,7 @@ for version in $versions; do
         docker build \
             --build-arg "CHECKSUM=${CHECKSUM}" \
             --build-arg "REPO_DIGEST=${REPO_DIGEST}" \
-            --build-arg "VERSION=${VERSION}" \
+            --build-arg "VERSION=${version}" \
             -t "boxboat/$image_name:$version" \
             .
         docker push "boxboat/$image_name:$version"

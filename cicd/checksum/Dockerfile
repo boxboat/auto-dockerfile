@@ -1,0 +1,4 @@
+ARG REPO_DIGEST
+FROM ${REPO_DIGEST}
+ARG CHECKSUM
+RUN echo "${CHECKSUM}" > /root/.checksum
