@@ -19,6 +19,11 @@ throttle(['docker']) {
               ./helm/build.sh
             '''
           },
+          "istioctl": {
+            sh '''
+              ./istioctl/build.sh
+            '''
+          },
           "kubectl": {
             sh '''
               ./kubectl/build.sh

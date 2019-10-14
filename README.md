@@ -11,5 +11,6 @@ Base images are automatically updated each night.  New tags are automatically de
 Image | Client/Utility | Versions
 ---|---|---
 [boxboat/helm](https://hub.docker.com/r/boxboat/helm/) | [helm](https://github.com/helm/helm) client | `>=2.8.0`
+[boxboat/istioctl](https://hub.docker.com/r/boxboat/istioctl/) | [istioctl](https://github.com/istio/istio) client | `>=1.0.0`
 [boxboat/kubectl](https://hub.docker.com/r/boxboat/kubectl/) | [kubectl](https://github.com/kubernetes/kubernetes) kubernetes client | `>=1.8.0`
 [boxboat/lego](https://hub.docker.com/r/boxboat/lego/) | [lego](https://github.com/go-acme/lego) Let's Encrypt client | `>=1.0.0`
