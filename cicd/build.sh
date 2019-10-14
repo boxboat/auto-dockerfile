@@ -40,6 +40,8 @@ checksum_length=$(echo "$checksum_layers" | wc -l)
 versions=$(git ls-remote --tags "$git_remote" \
     | sed -r -n 's|.*refs/tags/v?(.*)$|\1|p' \
     | xargs docker run --rm semver -r "$semver_range")
+latest_build=""
+latest_version=""
 
 # iterate through each version and build
 echo "---------------------------------------"
@@ -47,7 +49,6 @@ echo "Building boxboat/$image_name versions:"
 echo "$versions"
 IFS=$'\n'
 for version in $versions; do
-
     echo "---------------------------------------"
     echo "boxboat/$image_name:$version - starting"
     echo "---------------------------------------"
@@ -97,10 +98,13 @@ for version in $versions; do
         echo "---------------------------------------"
         echo "boxboat/$image_name:$version - up-to-date"
     fi
+
+    latest_build="$build"
+    latest_version="$version"
 done
 unset IFS
 
-if [ "$tag_latest" = "true" ] && [ "$build" = "true" ]; then
-    docker tag "boxboat/$image_name:$version" "boxboat/$image_name:latest"
+if [ "$tag_latest" = "true" ] && [ "$latest_build" = "true" ]; then
+    docker tag "boxboat/$image_name:$latest_version" "boxboat/$image_name:latest"
     docker push "boxboat/$image_name:latest"
 fi
