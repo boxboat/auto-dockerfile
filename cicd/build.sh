@@ -6,6 +6,7 @@ image_name="$3"
 git_remote="$4"
 semver_range="$5"
 tag_latest="$6"
+download_test="$7"
 
 cd $(dirname $0)
 checksum_dockerfile_path=$(pwd)/checksum
@@ -62,20 +63,29 @@ for version in $versions; do
         # no remote manifest; build
         build="true"
         echo "---------------------------------------"
-        echo " boxboat/$image_name:$version - does not exist; building"
+        echo "boxboat/$image_name:$version - does not exist; building"
         echo "---------------------------------------"
     else
         # check that remote manifest layers match checksum layers
         manifest_checksum_layers=$(echo "$manifest" | jq -r '.layers[].digest' | head -n "$checksum_length")
         if [ "$manifest_checksum_layers" != "$checksum_layers" ]; then
             echo "---------------------------------------"
-            echo " boxboat/$image_name:$version - does not exist; building"
+            echo "boxboat/$image_name:$version - does not exist; building"
             echo "---------------------------------------"
             build="true"
         fi
     fi
     
     if [ "$build" = "true" ]; then
+        # check to see if download link works
+        download_test_version=$(echo "$download_test" | VERSION="$version" envsubst '${VERSION}')
+        download_test_response=$(curl -SsLI "$download_test_version" -w "%{http_code}" -o /dev/null)
+        if [ "$download_test_response" = "404" ]; then
+            echo "$download_test_version - failed; skipping" >&2
+            continue
+        fi
+
+        # build and push image
         docker build \
             --build-arg "CHECKSUM=${CHECKSUM}" \
             --build-arg "REPO_DIGEST=${REPO_DIGEST}" \

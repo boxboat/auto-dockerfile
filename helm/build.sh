@@ -9,4 +9,5 @@ set -e
     "helm" \
     "https://github.com/helm/helm.git" \
     ">=2.8.0" \
-    "true"
+    "true" \
+    'https://storage.googleapis.com/kubernetes-helm/helm-v${VERSION}-linux-amd64.tar.gz'

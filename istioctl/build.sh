@@ -9,4 +9,5 @@ set -e
     "istioctl" \
     "https://github.com/istio/istio.git" \
     ">=1.0.0" \
-    "true"
+    "true" \
+    'https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux.tar.gz'

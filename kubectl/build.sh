@@ -9,4 +9,5 @@ set -e
     "kubectl" \
     "https://github.com/kubernetes/kubernetes.git" \
     ">=1.8.0" \
-    "true"
+    "true" \
+    'https://storage.googleapis.com/kubernetes-release/release/v${VERSION}/bin/linux/amd64/kubectl'
