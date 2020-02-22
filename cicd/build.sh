@@ -71,7 +71,7 @@ for version in $versions; do
         manifest_checksum_layers=$(echo "$manifest" | jq -r '.layers[].digest' | head -n "$checksum_length")
         if [ "$manifest_checksum_layers" != "$checksum_layers" ]; then
             echo "---------------------------------------"
-            echo "boxboat/$image_name:$version - does not exist; building"
+            echo "boxboat/$image_name:$version - out-of-date; re-building"
             echo "---------------------------------------"
             build="true"
         fi
