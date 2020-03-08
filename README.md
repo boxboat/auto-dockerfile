@@ -6,6 +6,11 @@ Base images use the latest [alpine](https://hub.docker.com/_/alpine) image.
 
 Base images are automatically updated each night.  New tags are automatically detected and pushed each night.
 
+Additional packages included in all images:
+
+- `curl`
+- `jq`
+
 ## Images
 
 Image | Client/Utility | Versions
