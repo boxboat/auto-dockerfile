@@ -6,7 +6,6 @@ RUN echo "${CHECKSUM}" > /root/.checksum
 RUN apk add --no-cache \
         curl \
         jq \
-        libc6-compat \
     && addgroup -g 1000 alpine \
     && adduser -u 1000 -G alpine -h /home/alpine -s /bin/sh -D alpine
 

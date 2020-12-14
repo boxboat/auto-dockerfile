@@ -8,15 +8,6 @@ set -e
     "alpine:latest" \
     "istioctl" \
     "https://github.com/istio/istio.git" \
-    ">=1.0.0 <1.6.0" \
-    "true" \
-    'https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux.tar.gz'
-
-../cicd/build.sh \
-    "istioctl" \
-    "alpine:latest" \
-    "istioctl" \
-    "https://github.com/istio/istio.git" \
     ">=1.6.0" \
     "true" \
     'https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux-amd64.tar.gz'

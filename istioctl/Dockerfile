@@ -10,7 +10,7 @@ RUN apk add --no-cache \
     && adduser -u 1000 -G alpine -h /home/alpine -s /bin/sh -D alpine
 
 ARG VERSION
-RUN curl -SsL "https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux.tar.gz" \
+RUN curl -SsL "https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux-amd64.tar.gz" \
     | tar -xz -C /usr/local/bin --strip-components=2 "istio-${VERSION}/bin/istioctl"
 
 WORKDIR /home/alpine
