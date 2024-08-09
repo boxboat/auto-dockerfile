@@ -8,6 +8,6 @@ set -e
     "alpine:latest" \
     "kubectl" \
     "https://github.com/kubernetes/kubernetes.git" \
-    ">=1.15.0" \
+    ">=1.25.0" \
     "true" \
     'https://storage.googleapis.com/kubernetes-release/release/v${VERSION}/bin/linux/amd64/kubectl'
