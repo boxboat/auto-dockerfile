@@ -8,31 +8,13 @@ semver_range="$5"
 tag_latest="$6"
 download_test="$7"
 
-cd $(dirname $0)
-checksum_dockerfile_path=$(pwd)/checksum
-set -e
-cd ../
-cd $image_dir
+inspect_count=0
 
-# needed for `docker manifest` commands
-export DOCKER_CLI_EXPERIMENTAL="enabled"
+touch "${image_dir}/push.sh"
+chmod +x "${image_dir}/push.sh"
+echo "!/bin/bash" > "${image_dir}/push.sh"
 
-# base image should be pulled in `cicd/build-pre.sh`
-# get the repo digest of the base image
-export REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$base_image")
-# compute checksum of Dockerfile
-export CHECKSUM=$(envsubst '${REPO_DIGEST}' < Dockerfile \
-        | sha256sum \
-        | cut -d' ' -f1)
-
-# build a checksum image and push
-docker build \
-    --build-arg "CHECKSUM=${CHECKSUM}" \
-    --build-arg "REPO_DIGEST=${REPO_DIGEST}" \
-    -t "boxboat/$image_name:checksum" \
-    "$checksum_dockerfile_path"
-docker push "boxboat/$image_name:checksum"
-checksum_manifest=$(docker manifest inspect "boxboat/$image_name:checksum")
+checksum_manifest=$(regctl manifest get "boxboat/$image_name:checksum" --format '{{jsonPretty .}}')
 checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
 checksum_length=$(echo "$checksum_layers" | wc -l)
 
@@ -56,7 +38,8 @@ for version in $versions; do
     # check for remote manifest
     build="false"
     set +e
-    manifest=$(docker manifest inspect "boxboat/$image_name:$version")
+    manifest=$(regctl manifest get "boxboat/$image_name:$version" --format '{{jsonPretty .}}')
+    ((++inspect_count))
     rc=$?
     set -e
 
@@ -93,7 +76,7 @@ for version in $versions; do
             --build-arg "VERSION=${version}" \
             -t "boxboat/$image_name:$version" \
             .
-        docker push "boxboat/$image_name:$version"
+        echo "docker push \"boxboat/$image_name:$version\"" >> "${image_dir}/push.sh"
     else
         echo "---------------------------------------"
         echo "boxboat/$image_name:$version - up-to-date"
@@ -105,6 +88,8 @@ done
 unset IFS
 
 if [ "$tag_latest" = "true" ] && [ "$latest_build" = "true" ]; then
-    docker tag "boxboat/$image_name:$latest_version" "boxboat/$image_name:latest"
-    docker push "boxboat/$image_name:latest"
+    echo "docker tag \"boxboat/$image_name:$latest_version\" \"boxboat/$image_name:latest\"" >> "${image_dir}/push.sh"
+    echo "docker push \"boxboat/$image_name:latest\"" >> "${image_dir}/push.sh"
 fi
+
+echo "Inspect Count: ${inspect_count}"
