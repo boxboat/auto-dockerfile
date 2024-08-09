@@ -17,6 +17,6 @@ Note: Historical versions are no longer updated nightly but remain in Docker Hub
 Image | Client/Utility | Historical | Current
 ---|---|---|---
 [boxboat/helm](https://hub.docker.com/r/boxboat/helm/) | [helm](https://github.com/helm/helm) client | `>=3.0.0` | `>=3.12.0`
-[boxboat/istioctl](https://hub.docker.com/r/boxboat/istioctl/) | [istioctl](https://github.com/istio/istio) client | `>=1.6.0` | `>=1.17.0`
-[boxboat/kubectl](https://hub.docker.com/r/boxboat/kubectl/) | [kubectl](https://github.com/kubernetes/kubernetes) kubernetes client | `>=1.15.0` | `>=1.25.0`
+[boxboat/istioctl](https://hub.docker.com/r/boxboat/istioctl/) | [istioctl](https://github.com/istio/istio) client | `>=1.6.0` | `>=1.21.0`
+[boxboat/kubectl](https://hub.docker.com/r/boxboat/kubectl/) | [kubectl](https://github.com/kubernetes/kubernetes) kubernetes client | `>=1.15.0` | `>=1.28.0`
 [boxboat/lego](https://hub.docker.com/r/boxboat/lego/) | [lego](https://github.com/go-acme/lego) Let's Encrypt client | `>=3.5.0` | `>=4.15.0`
