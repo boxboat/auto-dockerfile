@@ -10,9 +10,23 @@ download_test="$7"
 
 inspect_count=0
 
-touch "${image_dir}/push.sh"
-chmod +x "${image_dir}/push.sh"
-echo "!/bin/bash" > "${image_dir}/push.sh"
+cd $(dirname $0)
+checksum_dockerfile_path=$(pwd)/checksum
+set -e
+cd ../
+cd $image_dir
+
+# base image should be pulled in `cicd/build-pre.sh`
+# get the repo digest of the base image
+export REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$base_image")
+# compute checksum of Dockerfile
+export CHECKSUM=$(envsubst '${REPO_DIGEST}' < Dockerfile \
+        | sha256sum \
+        | cut -d' ' -f1)
+
+touch "./push.sh"
+chmod +x "./push.sh"
+echo "!/bin/bash" > "./push.sh"
 
 checksum_manifest=$(regctl manifest get "boxboat/$image_name:checksum" --format '{{jsonPretty .}}')
 checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
@@ -76,7 +90,7 @@ for version in $versions; do
             --build-arg "VERSION=${version}" \
             -t "boxboat/$image_name:$version" \
             .
-        echo "docker push \"boxboat/$image_name:$version\"" >> "${image_dir}/push.sh"
+        echo "docker push \"boxboat/$image_name:$version\"" >> "./push.sh"
     else
         echo "---------------------------------------"
         echo "boxboat/$image_name:$version - up-to-date"
@@ -88,8 +102,8 @@ done
 unset IFS
 
 if [ "$tag_latest" = "true" ] && [ "$latest_build" = "true" ]; then
-    echo "docker tag \"boxboat/$image_name:$latest_version\" \"boxboat/$image_name:latest\"" >> "${image_dir}/push.sh"
-    echo "docker push \"boxboat/$image_name:latest\"" >> "${image_dir}/push.sh"
+    echo "docker tag \"boxboat/$image_name:$latest_version\" \"boxboat/$image_name:latest\"" >> "./push.sh"
+    echo "docker push \"boxboat/$image_name:latest\"" >> "./push.sh"
 fi
 
 echo "Inspect Count: ${inspect_count}"
