@@ -8,6 +8,6 @@ set -e
     "alpine:latest" \
     "helm" \
     "https://github.com/helm/helm.git" \
-    ">=3.0.0" \
+    ">=3.12.0" \
     "true" \
     'https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz'
