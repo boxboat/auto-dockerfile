@@ -8,6 +8,9 @@ semver_range="$5"
 tag_latest="$6"
 download_test="$7"
 
+# disable manifest checking - always build image
+check_checksum="false"
+
 inspect_count=0
 
 cd $(dirname $0)
@@ -28,9 +31,11 @@ touch "./push.sh"
 chmod +x "./push.sh"
 echo "#!/bin/bash" > "./push.sh"
 
-checksum_manifest=$(regctl manifest get "boxboat/$image_name:checksum" --format '{{jsonPretty .}}')
-checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
-checksum_length=$(echo "$checksum_layers" | wc -l)
+if [ "$check_checksum" = "true"]; then
+    checksum_manifest=$(regctl manifest get "boxboat/$image_name:checksum" --format '{{jsonPretty .}}')
+    checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
+    checksum_length=$(echo "$checksum_layers" | wc -l)
+fi
 
 # list remote git versions
 versions=$(git ls-remote --tags "$git_remote" \
@@ -49,29 +54,34 @@ for version in $versions; do
     echo "boxboat/$image_name:$version - starting"
     echo "---------------------------------------"
 
-    # check for remote manifest
     build="false"
-    set +e
-    manifest=$(regctl manifest get "boxboat/$image_name:$version" --format '{{jsonPretty .}}')
-    ((++inspect_count))
-    rc=$?
-    set -e
 
-    if [ $rc -ne 0 ]; then
-        # no remote manifest; build
-        build="true"
-        echo "---------------------------------------"
-        echo "boxboat/$image_name:$version - does not exist; building"
-        echo "---------------------------------------"
-    else
-        # check that remote manifest layers match checksum layers
-        manifest_checksum_layers=$(echo "$manifest" | jq -r '.layers[].digest' | head -n "$checksum_length")
-        if [ "$manifest_checksum_layers" != "$checksum_layers" ]; then
-            echo "---------------------------------------"
-            echo "boxboat/$image_name:$version - out-of-date; re-building"
-            echo "---------------------------------------"
+    if [ "$check_checksum" = "true" ]; then
+        # check for remote manifest
+        set +e
+        manifest=$(regctl manifest get "boxboat/$image_name:$version" --format '{{jsonPretty .}}')
+        ((++inspect_count))
+        rc=$?
+        set -e
+
+        if [ $rc -ne 0 ]; then
+            # no remote manifest; build
             build="true"
+            echo "---------------------------------------"
+            echo "boxboat/$image_name:$version - does not exist; building"
+            echo "---------------------------------------"
+        else
+            # check that remote manifest layers match checksum layers
+            manifest_checksum_layers=$(echo "$manifest" | jq -r '.layers[].digest' | head -n "$checksum_length")
+            if [ "$manifest_checksum_layers" != "$checksum_layers" ]; then
+                echo "---------------------------------------"
+                echo "boxboat/$image_name:$version - out-of-date; re-building"
+                echo "---------------------------------------"
+                build="true"
+            fi
         fi
+    else
+        build="true"
     fi
     
     if [ "$build" = "true" ]; then
