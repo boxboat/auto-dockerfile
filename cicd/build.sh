@@ -26,7 +26,7 @@ export CHECKSUM=$(envsubst '${REPO_DIGEST}' < Dockerfile \
 
 touch "./push.sh"
 chmod +x "./push.sh"
-echo "!/bin/bash" > "./push.sh"
+echo "#!/bin/bash" > "./push.sh"
 
 checksum_manifest=$(regctl manifest get "boxboat/$image_name:checksum" --format '{{jsonPretty .}}')
 checksum_layers=$(echo "$checksum_manifest" | jq -r '.layers[].digest')
