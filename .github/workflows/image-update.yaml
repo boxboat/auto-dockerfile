@@ -1,13 +1,13 @@
 name: image-update
-#on:
-#  schedule:
-#    - cron: '0 0 * * *'
-
 on:
-  push:
-    branches:
-      - master
-      - feature/gha
+  schedule:
+    - cron: '0 0 * * *'
+
+#on:
+#  push:
+#    branches:
+#      - master
+#      - feature/gha
 
 jobs:
   base-image-digest:
