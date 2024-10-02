@@ -1,3 +1,5 @@
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 ARG REPO_DIGEST
 FROM ${REPO_DIGEST}
 ARG CHECKSUM
@@ -9,8 +11,10 @@ RUN apk add --no-cache \
     && addgroup -g 1000 alpine \
     && adduser -u 1000 -G alpine -h /home/alpine -s /bin/sh -D alpine
 
+ARG TARGETOS
+ARG TARGETARCH
 ARG VERSION
-RUN curl -SsL "https://github.com/go-acme/lego/releases/download/v${VERSION}/lego_v${VERSION}_linux_amd64.tar.gz" \
+RUN curl -SsL "https://github.com/go-acme/lego/releases/download/v${VERSION}/lego_v${VERSION}_${TARGETOS}_${TARGETARCH}.tar.gz" \
     | tar -xz -C /usr/local/bin lego
 
 WORKDIR /home/alpine
