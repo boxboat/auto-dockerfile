@@ -1,0 +1,240 @@
+name: image-update
+on:
+  schedule:
+    - cron: '20 6 * * *'
+
+#on:
+#  push:
+#    branches:
+#      - master
+#      - feature/gha
+
+jobs:
+  base-image-digest:
+    strategy:
+      matrix:
+        image:
+          - command: helm
+            base: alpine
+            repo: "https://github.com/helm/helm.git"
+            check: "https://get.helm.sh/helm-v${VERSION}-linux-amd64.tar.gz"
+            semverRange: ">=3.12.0"
+          - command: istioctl
+            base: alpine
+            repo: "https://github.com/istio/istio.git"
+            check: "https://github.com/istio/istio/releases/download/${VERSION}/istio-${VERSION}-linux-amd64.tar.gz"
+            semverRange: ">=1.21.0"
+          - command: kubectl
+            base: alpine
+            repo: "https://github.com/kubernetes/kubernetes.git"
+            check: "https://storage.googleapis.com/kubernetes-release/release/v${VERSION}/bin/linux/amd64/kubectl"
+            semverRange: ">=1.28.0"
+          - command: lego
+            base: alpine
+            repo: "https://github.com/go-acme/lego.git"
+            check: "https://github.com/go-acme/lego/releases/download/v${VERSION}/lego_v${VERSION}_linux_amd64.tar.gz"
+            semverRange: ">=4.15.0"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set Node.js 20.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+
+      - name: Install semver
+        uses: borales/actions-yarn@v4
+        with:
+          cmd: global add semver
+
+      - name: Install regctl
+        uses: iarekylew00t/regctl-installer@v3
+
+      - name: Inspect latest alpine image
+        id: baseImage
+        run: |
+          # calculate digest
+          digest=$(regctl manifest digest ${{ matrix.image.base }}:latest)
+          echo "digest=${{ matrix.image.base }}@${digest}" >> $GITHUB_OUTPUT
+          # calculate checksum
+          checksum=$(envsubst '${repo_digest}' < ./cicd/checksum/Dockerfile | sha256sum | cut -d' ' -f1)
+          echo "checksum=${checksum}" >> $GITHUB_OUTPUT
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: ./cicd/checksum
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            CHECKSUM=${{ steps.baseImage.outputs.checksum }}
+            REPO_DIGEST=${{ steps.baseImage.outputs.digest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/boxboat/${{ matrix.image.command }}:checksum
+            boxboat/${{ matrix.image.command }}:checksum
+
+      - name: Inspect checksum image
+        id: checksumImage
+        run: |
+          # calculate digest
+          digest="ghcr.io/boxboat/${{matrix.image.command }}@$(regctl manifest digest ghcr.io/boxboat/${{matrix.image.command }}:checksum)"
+          echo "digest=$digest" >> $GITHUB_OUTPUT
+          
+          # calculate versions
+          versions=($(git ls-remote --tags "${{matrix.image.repo}}" \
+            | sed -r -n 's|.*refs/tags/v?(.*)$|\1|p' \
+            | xargs semver -r "${{ matrix.image.semverRange}}"))
+          IFS=$'\n'
+          size=${#versions[@]}
+          echo $size
+          
+          jsonVersions="["
+          for i in "${!versions[@]}"; do
+            # check to see if version is available for download and skip if not
+            download_test_version=$(echo '${{matrix.image.check}}' | VERSION="${versions[$i]}" envsubst '${VERSION}')
+            download_test_response=$(curl -SsLI "$download_test_version" -w "%{http_code}" -o /dev/null)
+            if [ "$download_test_response" = "404" ]; then
+              echo "$download_test_version - failed; skipping" >&2
+              continue
+            fi
+          
+            jsonVersions="${jsonVersions}{\
+            'command':'${{matrix.image.command}}',\
+            'version':'${versions[$i]}',\
+            'latest':'${versions[$((size-1))]}',\
+            'digest':'$digest',\
+            'checksum':'${{ steps.baseImage.outputs.checksum }}'}"
+            
+            if (( $i < ($size-1) )); then
+              jsonVersions="${jsonVersions},"
+            fi
+          done
+          jsonVersions="${jsonVersions}]"
+          echo ${jsonVersions}
+          echo "versions=${jsonVersions}" >> $GITHUB_OUTPUT
+          echo "latest=${versions[$((size-1))]}" >> $GITHUB_OUTPUT
+
+      # use GoCodeAlone fork - until cloudposse fixes
+      # https://github.com/cloudposse/github-action-matrix-outputs-read/issues/29
+      - uses: GoCodeAlone/github-action-matrix-outputs-write@v1
+        id: out
+        with:
+          matrix-step-name: ${{ github.job }}
+          matrix-key: ${{ matrix.image.command }}
+          outputs: |-
+            digest: ${{ steps.checksumImage.outputs.digest }}
+            checksum: ${{ steps.baseImage.outputs.checksum }}
+            versions: ${{ steps.checksumImage.outputs.versions }}
+            latest: ${{ steps.checksumImage.outputs.latest }}
+
+  read:
+    runs-on: ubuntu-latest
+    needs: [base-image-digest]
+    steps:
+      # use GoCodeAlone fork - until cloudposse fixes
+      # https://github.com/cloudposse/github-action-matrix-outputs-read/issues/29
+      - uses: GoCodeAlone/github-action-matrix-outputs-read@v1
+        id: read
+        with:
+          matrix-step-name: base-image-digest
+      - name: join version arrays
+        id: join
+        run: |
+          helm='${{ toJson(fromJson(steps.read.outputs.result).versions.helm) }}'
+          kubectl='${{ toJson(fromJson(steps.read.outputs.result).versions.kubectl) }}'
+          istioctl='${{ toJson(fromJson(steps.read.outputs.result).versions.istioctl) }}'
+          lego='${{ toJson(fromJson(steps.read.outputs.result).versions.lego) }}'
+          echo $helm > ./versions.json
+          echo $kubectl >> ./versions.json
+          echo $istioctl >> ./versions.json
+          echo $lego >> ./versions.json
+          
+          versions=$(jq -c -s 'add' ./versions.json)
+          echo "versions=${versions}" >> $GITHUB_OUTPUT
+    outputs:
+      result: "${{ steps.read.outputs.result }}"
+      versions: "${{steps.join.outputs.versions}}"
+
+  build:
+    strategy:
+      matrix:
+        image: ${{ fromJson(needs.read.outputs.versions) }}
+    runs-on: ubuntu-latest
+    needs: [read]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+        with:
+          context: ./${{ matrix.image.command }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            CHECKSUM=${{ matrix.image.checksum }}
+            REPO_DIGEST=${{ matrix.image.digest }}
+            VERSION=${{ matrix.image.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/boxboat/${{ matrix.image.command }}:${{ matrix.image.version }}
+            boxboat/${{ matrix.image.command }}:${{ matrix.image.version }}
+
+      - name: Install regctl
+        if: ${{ matrix.image.version == matrix.image.latest }}
+        uses: iarekylew00t/regctl-installer@v3
+
+      - name: Tag latest
+        if: ${{ matrix.image.version == matrix.image.latest }}
+        run: |
+          regctl image copy ghcr.io/boxboat/${{ matrix.image.command }}:${{ matrix.image.version }} ghcr.io/boxboat/${{ matrix.image.command }}:latest
+          regctl image copy boxboat/${{ matrix.image.command }}:${{ matrix.image.version }} boxboat/${{ matrix.image.command }}:latest
