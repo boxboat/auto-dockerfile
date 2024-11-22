@@ -2,12 +2,9 @@ name: image-update
 on:
   schedule:
     - cron: '20 6 * * *'
-
-#on:
-#  push:
-#    branches:
-#      - master
-#      - feature/gha
+  push:
+    branches:
+      - master
 
 jobs:
   base-image-digest:
@@ -27,7 +24,7 @@ jobs:
           - command: kubectl
             base: alpine
             repo: "https://github.com/kubernetes/kubernetes.git"
-            check: "https://storage.googleapis.com/kubernetes-release/release/v${VERSION}/bin/linux/amd64/kubectl"
+            check: "https://dl.k8s.io/release/v${VERSION}/bin/linux/amd64/kubectl"
             semverRange: ">=1.28.0"
           - command: lego
             base: alpine
